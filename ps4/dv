@@ -1,0 +1,136 @@
+rm(list=ls())
+
+context1 <- read.csv('htv.csv')
+lwage <- log(context1$wage)
+
+model1 <- lm(lwage~abil+educ+exper,data=context1)
+summary(model1)
+AIC(model1) #1935.995
+BIC(model1) #1961.569
+
+context1$abil2 <- context1$abil*context1$abil
+context1$educ2 <- context1$educ*context1$educ
+context1$exper2 <- context1$exper*context1$exper
+context1$abileduc <- context1$abil*context1$educ
+context1$abilexper <- context1$abil*context1$exper
+context1$educexper <- context1$educ*context1$exper
+
+model2 <- lm(lwage~exper+abileduc+educexper,data=context1)
+summary(model2)
+AIC(model2) # After removing variables AIC : 1926.457 , AIC after with all variables : 1926.256  
+BIC(model2) # After removing variables BIC : 1952.031 , BIC after with all variables : 1982.518 
+
+step(model2)
+
+#   Method and Understanding 
+#   We remove the variables based on significance level on each step, if we keep an interactive 
+#   variable then we be bring in colinearity bring error to the model.
+#   During model selection we choose highest adjusted R squares and lowest AIC, BIC Models ! 
+
+# a) The difference between model1 and model2 is that variables education and ability are not significant 
+#    on there own however an interaction between ability-education and education-experience 
+#    is highly significant. 
+
+# b) The variable educ*exper is an interactive variable, the interactive variable here in the model 
+#    explains that the effect of experience on wage also depends on the number of years of education.
+
+#########################################################
+
+context2 <- read.csv('loanapp.csv')
+summary(context2)
+
+model3 <- glm(approve~white,family=binomial(link = "logit"),data=context2)
+summary(model3)
+vcov(model3) # Standard error matrix for coefficients
+vcovHC(model3) # White-corrected standard error matrix
+
+coeftest(model3,vcov.=vcov) # Old school t test for significance (like summary)
+coeftest(model3,vcov.=vcovHC) # White-corrected t test for significance
+
+model4 <- glm(approve~white+hrat+obrat+loanprc+unem++male+married+dep+
+              sch+cosign+chist+pubrec+mortlat2+vr,
+              family=binomial(link = "logit"),data=context2)
+summary(model4)
+vcov(model4) # Standard error matrix for coefficients
+vcovHC(model4) # White-corrected standard error matrix
+
+coeftest(model4,vcov.=vcov) # Old school t test for significance (like summary)
+coeftest(model4,vcov.=vcovHC) # White-corrected t test for significance
+
+context2$whiteobrat <- context2$white*context2$obrat
+
+model5 <- glm(approve~white+hrat+obrat+loanprc+unem++male+married+dep+
+                sch+cosign+chist+pubrec+mortlat2+vr+whiteobrat,
+              family=binomial(link = "logit"),data=context2)
+summary(model5)
+vcov(model5) # Standard error matrix for coefficients
+vcovHC(model5) # White-corrected standard error matrix
+
+coeftest(model5,vcov.=vcov) # Old school t test for significance (like summary)
+coeftest(model5,vcov.=vcovHC) # White-corrected t test for significance
+
+# the logistic regression gives probabilties y* = log(p/1-p) hence, p = exp(y*)/(exp(y*)+1)
+# a) We know that b1 is the change in log odds of approval for white compared to non white, the 
+#    coefficient rougly tells us that chance of approval is high for white men. Please find below understanding. 
+
+apprwhite <-  exp(model3$coefficients[1]+model3$coefficients[2])
+apprnonwhite <- exp(model3$coefficients[1])
+
+approvalprobability <- apprwhite/(1+apprwhite) # .9083
+
+# hence we estimate that the probability of approval of loan if the person is white is 90% based on model3.
+#
+# b) b1 remains significant even after adding 14 more variables in model4, 
+#    however the coefficient value has reduced and standard error has increased.
+# 
+# c) b1 has become insignificant after adding the interactive variable of white*obrat in model5. 
+#
+# d) The interactive variable white*obrat is a variable that provides Other income obligation's for a white person.
+#    The reason it has effected the model is because it provides information on the other obligations that 
+#    a person white or non white has and this interaction improves the model significantly making
+#    it an important variable. 
+
+############################################################
+
+context3 <- read.csv('smoke.csv')
+
+context3$age2 <- context3$age*context3$age
+context3$lincome <- log(context3$income)
+
+model6 <- glm(cigs~educ+age+age2+lincome+restaurn,data=context3,family = poisson(link = "log"))
+vcov(model6)
+vcovHC(model6)
+
+coeftest(model6,vcov.=vcovHC)
+exp(model6$coefficients[2])
+
+# a) We estiated that the expected log count of cigs for a 1-unit increase in education is -.059 holding 
+#    all other variables constant. We can also interpret this as when education increases by 1 unit 
+#    no of cigirates smoked increases by .94 
+
+# b) 
+
+############################################################
+
+library('evtree')
+context4 <- read.csv('hdisease.csv')
+
+model7		<-	evtree(hdisease~dset+age+cp+trestbps+thalach+exang,data=context4)
+summary(model7)
+plot(model7)
+
+model8		<-	ctree(hdisease~dset+age+cp+trestbps+thalach+exang,data=context4)
+summary(model8)
+  plot(model8)
+
+context5 <- read.csv('hdisease-new.csv')
+context5$hdisease_pred <- predict(model8,context5)
+
+# a) Model 8 is overfitting the data whereas Model 7 is underfitting the data.
+# 
+# b) dset variable is a categorical variable which only provides the name of the hospital,this variable
+#    doesn't really explain heart discease stage and hence keeping this in the model would be 
+#    overfitting the model and would add error. 
+
+
+
